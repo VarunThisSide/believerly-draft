@@ -1,19 +1,18 @@
-import NextAuth, { type NextAuthConfig } from "next-auth";
+import NextAuth from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { PrismaAdapter } from "@auth/prisma-adapter";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/prisma"; // Adjust this path if prisma.ts is somewhere else
 import bcrypt from "bcryptjs";
+import { authConfig } from "@/auth.config"; // Adjust path if auth.config is in a different folder
 
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL ?? "admin@yourdomain.com";
 
-export const authConfig: NextAuthConfig = {
+// NextAuth merges the edge authConfig with the Node-only providers/callbacks
+export const { handlers, auth, signIn, signOut } = NextAuth({
+  ...authConfig,
   adapter: PrismaAdapter(prisma),
-
-  session: {
-    strategy: "jwt", // Required when utilizing CredentialsProvider
-  },
-
+  
   providers: [
     // ── Google OAuth ──────────────────────────────────────────────
     GoogleProvider({
@@ -90,19 +89,10 @@ export const authConfig: NextAuthConfig = {
     async session({ session, token }) {
       if (session.user) {
         session.user.id = token.id as string;
-        session.user.role = token.role as any; // Type augmentation will handle details
+        // @ts-ignore - Type augmentation will handle details in next-auth.d.ts
+        session.user.role = token.role as string; 
       }
       return session;
     },
   },
-
-  pages: {
-    signIn: "/login",
-    error: "/login",
-  },
-  
-  secret: process.env.NEXTAUTH_SECRET,
-};
-
-// NextAuth v5 returns the structural handlers directly!
-export const { handlers, auth, signIn, signOut } = NextAuth(authConfig);
+});
